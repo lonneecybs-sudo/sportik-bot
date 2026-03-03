@@ -1,4 +1,3 @@
-```python
 import os
 import json
 import logging
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8710055657:AAEWkUYdJdv6FxNpuWi2ikZI0vRF4P8rygk")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 ADMIN_ID = 8259326703
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "")
 
@@ -407,4 +406,3 @@ if __name__ == "__main__":
     asyncio.set_event_loop(loop)
     loop.run_until_complete(setup_webhook())
     app.run(host="0.0.0.0", port=port)
-```
