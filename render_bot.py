@@ -1,6 +1,5 @@
 """
-Telegram Bot для Render.com (вебхук версия)
-Основан на коде бота "Спортик друн"
+Telegram Bot для Render.com
 """
 
 import os
@@ -11,7 +10,7 @@ import asyncio
 from typing import Dict, List, Tuple
 
 from flask import Flask, request, abort
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -26,11 +25,10 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 if not BOT_TOKEN:
     raise RuntimeError("Не задана переменная окружения BOT_TOKEN")
 
-ADMIN_ID = 8259326703  # Твой ID
+ADMIN_ID = 8259326703
 
 # Render автоматически выдает публичный URL
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
-PORT = int(os.getenv("PORT", 10000))
 
 # ======================== ИНИЦИАЛИЗАЦИЯ ========================
 logging.basicConfig(
@@ -61,7 +59,7 @@ def save_json(file_path: str, data):
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# ======================== ГОРОДА (сокращенный список для примера) ========================
+# ======================== ГОРОДА ========================
 DEFAULT_CITIES = [
     "Москва", "Санкт-Петербург", "Новосибирск", "Екатеринбург", "Казань",
     "Лондон", "Париж", "Берлин", "Мадрид", "Рим", "Токио", "Пекин",
@@ -95,10 +93,6 @@ def update_user_stats(user_id: int, user_name: str, username: str, game: str, po
     
     users_data[user_id_str]["first_name"] = user_name
     users_data[user_id_str]["username"] = username
-    
-    if "stats" not in users_data[user_id_str]:
-        users_data[user_id_str]["stats"] = {"cities": 0, "rps": 0, "dice": 0, "sapper": 0}
-    
     users_data[user_id_str]["stats"][game] = users_data[user_id_str]["stats"].get(game, 0) + points
     save_users(users_data)
     return users_data[user_id_str]["stats"][game]
@@ -111,7 +105,6 @@ def is_admin(user_id: int) -> bool:
     return user_id == ADMIN_ID
 
 # ======================== СОЗДАЕМ ПРИЛОЖЕНИЕ БОТА ========================
-# Важно: создаем Application без Updater, т.к. используем вебхуки
 telegram_app = Application.builder().token(BOT_TOKEN).updater(None).build()
 
 # ======================== ОБРАБОТЧИКИ КОМАНД ========================
@@ -144,18 +137,16 @@ async def games_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("Выбери игру:", reply_markup=reply_markup)
 
-# Здесь можно добавить остальные обработчики игр (города, кмб, кубик, сапер)
-# Для краткости я оставляю заглушки, но ты можешь перенести полную логику из предыдущего кода
-
-async def echo_placeholder(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Заглушка для демонстрации"""
-    await update.message.reply_text("Игра в разработке! 👨‍💻")
+async def echo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Временный обработчик для теста"""
+    text = update.message.text
+    await update.message.reply_text(f"Ты написал: {text}")
 
 # ======================== РЕГИСТРАЦИЯ ОБРАБОТЧИКОВ ========================
 telegram_app.add_handler(CommandHandler("start", start_command))
 telegram_app.add_handler(CommandHandler("help", help_command))
 telegram_app.add_handler(CommandHandler("games", games_command))
-telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo_placeholder))
+telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo_handler))
 
 # ======================== НАСТРОЙКА ВЕБХУКА ========================
 async def setup_webhook():
@@ -166,7 +157,6 @@ async def setup_webhook():
     
     webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/webhook"
     
-    # Удаляем старый вебхук и устанавливаем новый
     await telegram_app.bot.delete_webhook()
     await asyncio.sleep(0.5)
     
@@ -183,12 +173,10 @@ async def setup_webhook():
 # ======================== FLASK МАРШРУТЫ ========================
 @app.route('/')
 def index():
-    """Health check для Render"""
     return "Бот Спортик друн работает! 🤖", 200
 
 @app.route('/health')
 def health():
-    """Дополнительный health check"""
     return "OK", 200
 
 @app.route('/webhook', methods=['POST'])
@@ -200,7 +188,6 @@ def webhook():
     json_str = request.get_data(as_text=True)
     update = Update.de_json(json_str, telegram_app.bot)
     
-    # Обрабатываем update в асинхронной функции
     asyncio.run_coroutine_threadsafe(
         telegram_app.process_update(update),
         telegram_app.loop
@@ -217,5 +204,6 @@ async def before_first_request():
     await setup_webhook()
 
 if __name__ == "__main__":
-    # Запускаем Flask сервер
-    app.run(host="0.0.0.0", port=PORT)
+    # Render сам задает порт через переменную окружения PORT
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
